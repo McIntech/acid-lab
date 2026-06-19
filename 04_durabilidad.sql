@@ -1,0 +1,69 @@
+-- =====================================================================
+-- 04 — DURABILIDAD  (la "D" de ACID)
+-- =====================================================================
+--
+-- 1) CONTEXTO
+--    El Contador Pérez factura y la pantalla dice "listo". Un segundo
+--    después se va la luz y el servidor se reinicia. Cuando vuelve, esa
+--    factura DEBE seguir ahí: ya estaba confirmada, el SAT la timbró, el
+--    cliente la tiene. Si se evapora con el reinicio, perdiste dinero.
+--
+-- 2) CONCEPTO
+--    Durabilidad = una vez que el COMMIT regresó "ok", el cambio
+--    sobrevive a caídas, cortes de luz y reinicios. En Postgres esto lo
+--    garantiza el WAL (write-ahead log): en el COMMIT, los cambios se
+--    fuerzan (fsync) al WAL en disco ANTES de confirmarte. Con
+--    synchronous_commit=on (default) el COMMIT espera ese fsync, así que
+--    lo confirmado es durable. Con synchronous_commit=off vas más rápido
+--    pero podrías perder los últimos commits en una caída.
+--
+-- ---------------------------------------------------------------------
+-- 3) EL FALLO  (corre el archivo TAL CUAL: lo NO confirmado se pierde)
+-- ---------------------------------------------------------------------
+-- Aquí insertamos DENTRO de una transacción y NO confirmamos: hacemos
+-- ROLLBACK (simula "se cayó antes del COMMIT"). El trabajo desaparece:
+--
+--    ▼▼▼ EL FALLO — comenta este bloque cuando vayas a resolver ▼▼▼
+BEGIN;
+INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
+SELECT count(*) AS dentro_de_la_txn FROM facturas;   -- => 1 (parece guardada)
+ROLLBACK;  -- no hubo COMMIT: nada es durable
+SELECT count(*) AS despues_del_rollback FROM facturas; -- => 0 (se perdió)
+--    ▲▲▲ FIN EL FALLO ▲▲▲
+
+-- ---------------------------------------------------------------------
+-- 4) TU RETO
+-- ---------------------------------------------------------------------
+--    Demuestra durabilidad REAL contra un reinicio del servidor:
+--      1. Emite una factura y CONFÍRMALA (BEGIN; INSERT; COMMIT;).
+--      2. Reinicia Postgres:   brew services restart postgresql@17
+--         (espera ~2s a que vuelva).
+--      3. Reconéctate y cuenta facturas: la confirmada DEBE seguir ahí.
+--    Compáralo con el bloque de arriba: lo confirmado sobrevive, lo no
+--    confirmado no.
+--
+--    -- TODO: TU SOLUCIÓN AQUÍ
+--    -- (escribe el BEGIN; INSERT ...; COMMIT;  y luego, tras el
+--    --  reinicio, el SELECT count(*) que comprueba que persiste)
+--
+--    (referencia + comandos exactos en soluciones/04_durabilidad.sol.sql)
+--
+-- ---------------------------------------------------------------------
+-- 5) CRITERIO DE ÉXITO
+-- ---------------------------------------------------------------------
+--    La factura COMMITeada sigue existiendo (count = 1) después de
+--    reiniciar el servidor.
+--
+-- ---------------------------------------------------------------------
+-- 6) CÓMO CORRER
+-- ---------------------------------------------------------------------
+--    ./reset.sh
+--    PSQL="/opt/homebrew/opt/postgresql@17/bin/psql"
+--    DSN="dbname=postgres user=postgres host=localhost"
+--    # 1) emite y confirma:
+--    $PSQL "$DSN" -c "BEGIN; INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid()); COMMIT;"
+--    # 2) reinicia el servidor:
+--    brew services restart postgresql@17
+--    sleep 2
+--    # 3) comprueba que sobrevivió:
+--    $PSQL "$DSN" -c "SELECT count(*) FROM facturas;"   -- => 1
