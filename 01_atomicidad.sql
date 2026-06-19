@@ -20,13 +20,13 @@
 -- simula un fallo a mitad) y NO hay quien revierta el INSERT.
 --
 --    ▼▼▼ EL FALLO — comenta este bloque cuando vayas a resolver ▼▼▼
-INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
-UPDATE clientes SET saldo = saldo - (1 / 0) WHERE id = 1;  -- 💥 falla aquí
+-- INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
+-- UPDATE clientes SET saldo = saldo - (1 / 0) WHERE id = 1;  -- 💥 falla aquí
 --    ▲▲▲ FIN EL FALLO ▲▲▲
 --
 -- Ahora inspecciona el desastre:
-SELECT count(*) AS facturas_huerfanas FROM facturas;          -- => 1 (mala)
-SELECT saldo   AS saldo_sin_descontar FROM clientes WHERE id = 1; -- => 1 (mala)
+-- SELECT count(*) AS facturas_huerfanas FROM facturas;          -- => 1 (mala)
+-- SELECT saldo   AS saldo_sin_descontar FROM clientes WHERE id = 1; -- => 1 (mala)
 -- Factura emitida + timbre intacto = estado INCONSISTENTE.
 
 -- ---------------------------------------------------------------------
@@ -43,10 +43,21 @@ SELECT saldo   AS saldo_sin_descontar FROM clientes WHERE id = 1; -- => 1 (mala)
 --    queda basura.
 --
 --    -- TODO: TU SOLUCIÓN AQUÍ
+DO $$
+BEGIN
+  -- Aquí va el código ("try")
+    INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
+    UPDATE clientes SET saldo = saldo - (1/0) WHERE id = 1;
+  EXCEPTION WHEN others THEN 
+  -- Aquí va el ("Catch")
+    RAISE NOTICE 'Fallo a mitad atrapado -> rollback completo (%).', SQLERRM; -- DUDA: que es SQLERRM??
+END $$;
 --
 --    (la solución de referencia vive en soluciones/01_atomicidad.sol.sql,
 --     ábrela SÓLO después de intentarlo)
 
+SELECT count(*) AS facturas_huerfanas FROM facturas;          -- => 1 (mala)
+SELECT saldo   AS saldo_sin_descontar FROM clientes WHERE id = 1; -- => 1 (mala)
 -- ---------------------------------------------------------------------
 -- 5) CRITERIO DE ÉXITO
 -- ---------------------------------------------------------------------
