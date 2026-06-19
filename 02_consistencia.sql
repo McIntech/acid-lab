@@ -21,10 +21,10 @@
 -- entran sin chistar:
 --
 --    ▼▼▼ EL FALLO — comenta este bloque cuando vayas a resolver ▼▼▼
-INSERT INTO clientes (nombre, rfc, saldo) VALUES ('Saldo Negativo', 'AAAA010101AAA', -50);     -- saldo < 0
-INSERT INTO clientes (nombre, rfc, saldo) VALUES ('RFC Clonado',    'PERP800101AAA', 10);      -- rfc duplicado
-INSERT INTO facturas (cliente_id, uuid)   VALUES (9999, gen_random_uuid());                    -- cliente inexistente
-INSERT INTO clientes (nombre, rfc, saldo) VALUES (NULL, 'BBBB020202BBB', 5);                   -- nombre NULL
+-- INSERT INTO clientes (nombre, rfc, saldo) VALUES ('Saldo Negativo', 'AAAA010101AAA', -50);     -- saldo < 0
+-- INSERT INTO clientes (nombre, rfc, saldo) VALUES ('RFC Clonado',    'PERP800101AAA', 10);      -- rfc duplicado
+-- INSERT INTO facturas (cliente_id, uuid)   VALUES (9999, gen_random_uuid());                    -- cliente inexistente
+-- INSERT INTO clientes (nombre, rfc, saldo) VALUES (NULL, 'BBBB020202BBB', 5);                   -- nombre NULL
 --    ▲▲▲ FIN EL FALLO ▲▲▲
 --
 SELECT 'basura aceptada' AS estado, count(*) AS filas FROM clientes; -- crece de más
@@ -42,8 +42,63 @@ SELECT 'basura aceptada' AS estado, count(*) AS filas FROM clientes; -- crece de
 --    Luego DEMUESTRA que los 4 inserts ilegales fallan y uno legal pasa.
 --
 --    -- TODO: TU SOLUCIÓN AQUÍ
+ALTER TABLE clientes
+  ALTER COLUMN nombre SET NOT NULL,
+  ALTER COLUMN saldo SET NOT NULL,
+  ADD CONSTRAINT rfc_unico UNIQUE (rfc),
+  ADD CONSTRAINT saldo_no_neg CHECK (saldo >= 0);
+
+ALTER TABLE facturas
+  ALTER COLUMN cliente_id SET NOT NULL,
+  ADD CONSTRAINT cliente_id_fk FOREIGN KEY (cliente_id) REFERENCES clientes(id);
+
+
+DO $$ 
+  BEGIN
+    INSERT INTO clientes (nombre, rfc, saldo) VALUES ('Saldo Negativo', 'AAAA010101AAA', -50);     -- saldo < 0
+    EXCEPTION WHEN others THEN RAISE NOTICE 'VALOR NEGATIVO RECHAZADO: %', SQLERRM;
+  END $$;
+
+DO $$ 
+  BEGIN
+    INSERT INTO clientes (nombre, rfc, saldo) VALUES ('RFC Clonado',    'PERP800101AAA', 10);      -- rfc duplicado
+    EXCEPTION WHEN others THEN RAISE NOTICE 'RFC DUPLICADO RECHAZADO: %', SQLERRM;
+  END $$;
+
+DO $$ 
+  BEGIN
+    INSERT INTO facturas (cliente_id, uuid)   VALUES (9999, gen_random_uuid());                    -- cliente inexistente
+    EXCEPTION WHEN others THEN RAISE NOTICE 'CLIENTE INEXISTENTE RECHAZADO: %', SQLERRM;
+  END $$;
+
+DO $$ 
+  BEGIN
+    INSERT INTO clientes (nombre, rfc, saldo) VALUES (NULL, 'BBBB020202BBB', 5);                   -- nombre NULL
+    EXCEPTION WHEN others THEN RAISE NOTICE 'NOMBRE NULL RECHAZADO: %', SQLERRM;
+  END $$;
+
+-- Probamos uno legal.
+INSERT INTO clientes (nombre, rfc, saldo) VALUES ('Franco Limon', 'HHBB020202BBB', 1);                   -- nombre NULL
 --
 --    (referencia en soluciones/02_consistencia.sol.sql)
+-- EXTRA LOGS:
+
+--      estado      | filas
+-- -----------------+-------
+--  basura aceptada |     1
+-- (1 row)
+--
+-- ALTER TABLE
+-- ALTER TABLE
+-- psql:02_consistencia.sql:60: NOTICE:  VALOR NEGATIVO RECHAZADO: new row for relation "clientes" violates check constraint "saldo_no_neg"
+-- DO
+-- psql:02_consistencia.sql:66: NOTICE:  RFC DUPLICADO RECHAZADO: duplicate key value violates unique constraint "rfc_unico"
+-- DO
+-- psql:02_consistencia.sql:72: NOTICE:  CLIENTE INEXISTENTE RECHAZADO: insert or update on table "facturas" violates foreign key constraint "cliente_id_fk"
+-- DO
+-- psql:02_consistencia.sql:78: NOTICE:  NOMBRE NULL RECHAZADO: null value in column "nombre" of relation "clientes" violates not-null constraint
+-- DO
+-- INSERT 0 1
 
 -- ---------------------------------------------------------------------
 -- 5) CRITERIO DE ÉXITO
