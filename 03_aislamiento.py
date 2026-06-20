@@ -49,6 +49,7 @@
 
 import threading
 import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_SERIALIZABLE
 
 DSN = "dbname=postgres user=postgres host=localhost"
 barrera = threading.Barrier(2)
@@ -68,6 +69,7 @@ def facturar(nombre):
     """VERSIÓN NAIVE (READ COMMITTED) — provoca el lost update."""
     conn = psycopg2.connect(DSN)
     conn.autocommit = False
+    conn.set_isolation_level(ISOLATION_LEVEL_SERIALIZABLE)
     cur = conn.cursor()
 
     # ============ TODO: TU SOLUCIÓN AQUÍ ============
@@ -83,15 +85,21 @@ def facturar(nombre):
 
     barrera.wait()  # ambos hilos leyeron saldo=1 antes de escribir
 
-    if saldo >= 1:
+    if saldo < 1:
+        print("Saldo menor a 1")
+        conn.rollback()
+        conn.close()
+        return
+
+    try:
         cur.execute("INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid())")
         cur.execute("UPDATE clientes SET saldo = saldo - 1 WHERE id = 1")
         conn.commit()  # <- la versión SERIALIZABLE protege este commit
-        print(f"[{nombre}] facturó")
-    else:
+    except psycopg2.errors.SerializationFailure:
         conn.rollback()
-        print(f"[{nombre}] sin saldo, no facturó")
-    conn.close()
+        print(f"[{nombre}] error de serialización (40001) -> rollback, no facturó")
+    finally:
+        conn.close()
 
 
 def main():
