@@ -74,8 +74,7 @@ def facturar(nombre):
     # Cambia esta lectura por una lectura CON CANDADO (bloqueo pesimista):
     #     SELECT saldo FROM clientes WHERE id = 1 FOR UPDATE
     # Así el segundo hilo se forma y espera el candado del primero.
-    cur.execute("SELECT saldo FROM clientes WHERE id = 1")
-    # ================================================
+    cur.execute("SELECT saldo FROM clientes WHERE id = 1 FOR UPDATE")
     saldo = cur.fetchone()[0]
 
     if saldo >= 1:

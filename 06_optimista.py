@@ -74,8 +74,10 @@ def facturar(nombre):
 
     primera_vuelta = True
     while True:
+        # Leer saldo y version
         cur.execute("SELECT saldo, version FROM clientes WHERE id = 1")
         saldo, version = cur.fetchone()
+
 
         if primera_vuelta:
             barrera.wait()  # ambos leen la MISMA version la primera vez
@@ -83,6 +85,22 @@ def facturar(nombre):
 
         # ============ TODO: TU SOLUCIÓN AQUÍ ============
         # Implementa: si saldo<1 -> rechaza; si no, UPDATE ... WHERE
+        if saldo < 1:
+            conn.rollback()
+            print(f"[{nombre}] sin saldo, rechazó")
+            break
+
+        else:
+            cur.execute("UPDATE clientes SET saldo = saldo - 1, version = version + 1 WHERE id = 1 AND version = %s", (version,))
+            if cur.rowcount == 0:
+                conn.rollback()
+                print(f"[{nombre}] conflicto de version -> REINTENTA (sin candado)")
+                continue
+
+            cur.execute("INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid())")
+            conn.commit()
+            print(f"[{nombre}] facturó")
+            break
         # version=<leída>; revisa cur.rowcount; si 0 reintenta (continue),
         # si 1 inserta factura y commit (break).
         #
