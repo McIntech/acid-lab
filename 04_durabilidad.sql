@@ -24,11 +24,11 @@
 -- ROLLBACK (simula "se cayó antes del COMMIT"). El trabajo desaparece:
 --
 --    ▼▼▼ EL FALLO — comenta este bloque cuando vayas a resolver ▼▼▼
-BEGIN;
-INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
-SELECT count(*) AS dentro_de_la_txn FROM facturas;   -- => 1 (parece guardada)
-ROLLBACK;  -- no hubo COMMIT: nada es durable
-SELECT count(*) AS despues_del_rollback FROM facturas; -- => 0 (se perdió)
+-- BEGIN;
+-- INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
+-- SELECT count(*) AS dentro_de_la_txn FROM facturas;   -- => 1 (parece guardada)
+-- ROLLBACK;  -- no hubo COMMIT: nada es durable
+-- SELECT count(*) AS despues_del_rollback FROM facturas; -- => 0 (se perdió)
 --    ▲▲▲ FIN EL FALLO ▲▲▲
 
 -- ---------------------------------------------------------------------
@@ -46,6 +46,11 @@ SELECT count(*) AS despues_del_rollback FROM facturas; -- => 0 (se perdió)
 --    -- (escribe el BEGIN; INSERT ...; COMMIT;  y luego, tras el
 --    --  reinicio, el SELECT count(*) que comprueba que persiste)
 --
+BEGIN;
+INSERT INTO facturas (cliente_id, uuid) VALUES (1, gen_random_uuid());
+COMMIT;
+
+SELECT count(*) AS dentro_de_la_txn FROM facturas;   -- => 1 (parece guardada)
 --    (referencia + comandos exactos en soluciones/04_durabilidad.sol.sql)
 --
 -- ---------------------------------------------------------------------
